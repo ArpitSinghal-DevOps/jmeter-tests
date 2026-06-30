@@ -5,9 +5,20 @@
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
-        <collectionProp name="Arguments.arguments"/>
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="EMAIL" elementType="Argument">
+            <stringProp name="Argument.name">EMAIL</stringProp>
+            <stringProp name="Argument.value">${__P(EMAIL,)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PASSWORD" elementType="Argument">
+            <stringProp name="Argument.name">PASSWORD</stringProp>
+            <stringProp name="Argument.value">${__P(PASSWORD,)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
       </elementProp>
-      <stringProp name="TestPlan.comments">Generated from HAR file - CyberShield Dashboard API tests</stringProp>
+      <stringProp name="TestPlan.comments">CyberShield Dashboard API performance tests with dynamic login</stringProp>
     </TestPlan>
     <hashTree>
 
@@ -26,7 +37,7 @@
       </ThreadGroup>
       <hashTree>
 
-        <!-- DNS Cache Manager (helps in Docker) -->
+        <!-- DNS Cache Manager -->
         <DNSCacheManager guiclass="DNSCachePanel" testclass="DNSCacheManager" testname="DNS Cache Manager" enabled="true">
           <collectionProp name="DNSCacheManager.servers"/>
           <boolProp name="DNSCacheManager.clearEachIteration">false</boolProp>
@@ -46,12 +57,87 @@
         </ConfigTestElement>
         <hashTree/>
 
-        <!-- Header Manager (shared headers) -->
+        <!-- ============================================================ -->
+        <!-- STEP 1: LOGIN — get fresh auth token each test run           -->
+        <!-- ============================================================ -->
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST /api/login" enabled="true">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{"user":{"email":"${EMAIL}","password":"${PASSWORD}"}}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.path">/api/login</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <!-- Login-specific headers (no Cookie needed here) -->
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Login Headers" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Accept</stringProp>
+                <stringProp name="Header.value">application/json, text/plain, */*</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Origin</stringProp>
+                <stringProp name="Header.value">https://hf.cyberqshield.syipx.com</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Referer</stringProp>
+                <stringProp name="Header.value">https://hf.cyberqshield.syipx.com/login</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">User-Agent</stringProp>
+                <stringProp name="Header.value">Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+
+          <!-- Assert login returned 200 -->
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert Login 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.custom_message">Login failed — check EMAIL/PASSWORD credentials in Jenkins</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">33</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+
+          <!-- Extract token from JSON response body: {"token": "..."} -->
+          <JSONPathExtractor guiclass="JSONPathExtractorGui" testclass="JSONPathExtractor" testname="Extract auth_token" enabled="true">
+            <stringProp name="JSONPathExtractor.referenceNames">auth_token</stringProp>
+            <stringProp name="JSONPathExtractor.jsonPathExprs">$.token</stringProp>
+            <stringProp name="JSONPathExtractor.defaultValues">TOKEN_NOT_FOUND</stringProp>
+            <stringProp name="JSONPathExtractor.match_no">0</stringProp>
+            <boolProp name="JSONPathExtractor.compute_concat">false</boolProp>
+          </JSONPathExtractor>
+          <hashTree/>
+        </hashTree>
+
+        <!-- ============================================================ -->
+        <!-- STEP 2: Authenticated API calls using extracted token        -->
+        <!-- ============================================================ -->
+
+        <!-- Shared headers for all authenticated requests -->
         <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Browser Headers" enabled="true">
           <collectionProp name="HeaderManager.headers">
             <elementProp name="" elementType="Header">
               <stringProp name="Header.name">Cookie</stringProp>
-              <stringProp name="Header.value">${CYBER_COOKIE}</stringProp>
+              <stringProp name="Header.value">token=${auth_token}</stringProp>
             </elementProp>
             <elementProp name="" elementType="Header">
               <stringProp name="Header.name">Origin</stringProp>
@@ -85,8 +171,7 @@
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET cspm/fetchglobalfilter" enabled="true">
           <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-            </collectionProp>
+            <collectionProp name="Arguments.arguments"/>
           </elementProp>
           <stringProp name="HTTPSampler.path">/api/cloudsecurity/cspm/fetchglobalfilter</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
@@ -100,8 +185,7 @@
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET user_subtenant_list" enabled="true">
           <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-            </collectionProp>
+            <collectionProp name="Arguments.arguments"/>
           </elementProp>
           <stringProp name="HTTPSampler.path">/api/user_subtenant_list</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
@@ -118,7 +202,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;status&quot;:&quot;All&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"status":"All"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -135,8 +219,7 @@
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST cspm/tenant-config-status" enabled="true">
           <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-            </collectionProp>
+            <collectionProp name="Arguments.arguments"/>
           </elementProp>
           <stringProp name="HTTPSampler.path">/api/cloudsecurity/cspm/tenant-config-status</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
@@ -153,7 +236,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}</stringProp>
+                <stringProp name="Argument.value">{"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"timezone":"Asia/Calcutta"}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -170,8 +253,7 @@
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET custom-dashboard/dashboards" enabled="true">
           <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-            </collectionProp>
+            <collectionProp name="Arguments.arguments"/>
           </elementProp>
           <stringProp name="HTTPSampler.path">/api/custom-dashboard/dashboards</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
@@ -188,7 +270,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;24hours&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","assessment_time_filter":"","date_filter":"24hours","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -208,7 +290,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;24hours&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","assessment_time_filter":"","date_filter":"24hours","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -228,7 +310,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;24hours&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","assessment_time_filter":"","date_filter":"24hours","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -248,7 +330,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;24hours&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","assessment_time_filter":"","date_filter":"24hours","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -268,7 +350,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;24hours&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","assessment_time_filter":"","date_filter":"24hours","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -288,7 +370,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;90days&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","assessment_time_filter":"","date_filter":"90days","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -308,7 +390,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;accountId&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;period&quot;:1,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;,&quot;all&quot;:false}</stringProp>
+                <stringProp name="Argument.value">{"accountId":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"assessment_time_filter":"","period":1,"timezone":"Asia/Calcutta","all":false}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -328,7 +410,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;clusters&quot;:[],&quot;date_filter&quot;:&quot;24hours&quot;,&quot;cloud_provider&quot;:&quot;all&quot;}</stringProp>
+                <stringProp name="Argument.value">{"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"clusters":[],"date_filter":"24hours","cloud_provider":"all"}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -348,7 +430,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;clusters&quot;:[],&quot;date_filter&quot;:&quot;24hours&quot;,&quot;cloud_provider&quot;:&quot;all&quot;}</stringProp>
+                <stringProp name="Argument.value">{"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"clusters":[],"date_filter":"24hours","cloud_provider":"all"}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -368,7 +450,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;cloud_provider&quot;:&quot;all&quot;,&quot;date_filter&quot;:&quot;90days&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"assessment_time_filter":"","cloud_provider":"all","date_filter":"90days","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -388,7 +470,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;]}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"]}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -408,7 +490,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;cloud_provider&quot;:&quot;all&quot;,&quot;date_filter&quot;:&quot;24hours&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}</stringProp>
+                <stringProp name="Argument.value">{"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"assessment_time_filter":"","cloud_provider":"all","date_filter":"24hours","timezone":"Asia/Calcutta"}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -428,7 +510,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;date_filter&quot;:&quot;24hours&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","date_filter":"24hours","timezone":"Asia/Calcutta","assessment_time_filter":""}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -448,7 +530,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;date_filter&quot;:&quot;24hours&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","date_filter":"24hours"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -468,7 +550,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;regions&quot;:[],&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;24hours&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","regions":[],"assessment_time_filter":"","date_filter":"24hours"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -488,7 +570,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;tab&quot;:&quot;Open&quot;,&quot;range&quot;:{&quot;to_date&quot;:&quot;2026-04-30 12:25:35&quot;,&quot;from_date&quot;:&quot;2026-01-30 12:25:35&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","tab":"Open","range":{"to_date":"2026-06-30 12:00:00","from_date":"2026-03-31 12:00:00","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -508,7 +590,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;rule_type&quot;:&quot;All&quot;,&quot;detection_type&quot;:&quot;Threat&quot;,&quot;cloud_provider&quot;:&quot;all&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;90days&quot;}</stringProp>
+                <stringProp name="Argument.value">{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"rule_type":"All","detection_type":"Threat","cloud_provider":"all","assessment_time_filter":"","date_filter":"90days"}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -528,7 +610,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;data&quot;:{&quot;scope&quot;:[&quot;Global&quot;],&quot;environments&quot;:[&quot;2c55b57c-2957-4c91-ab01-58632bd61870&quot;,&quot;464989065112&quot;,&quot;941086635353&quot;,&quot;remediation-framework-qa&quot;,&quot;shield-qa-359809&quot;],&quot;cloud_provider&quot;:&quot;all&quot;,&quot;assessment_time_filter&quot;:&quot;&quot;,&quot;date_filter&quot;:&quot;24hours&quot;,&quot;timezone&quot;:&quot;Asia/Calcutta&quot;}}</stringProp>
+                <stringProp name="Argument.value">{"data":{"scope":["Global"],"environments":["2c55b57c-2957-4c91-ab01-58632bd61870","464989065112","941086635353","remediation-framework-qa","shield-qa-359809"],"cloud_provider":"all","assessment_time_filter":"","date_filter":"24hours","timezone":"Asia/Calcutta"}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -545,8 +627,7 @@
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET vulnerability/latest-published" enabled="true">
           <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-            </collectionProp>
+            <collectionProp name="Arguments.arguments"/>
           </elementProp>
           <stringProp name="HTTPSampler.path">/api/cloudsecurity/cspm/vulnerability/latest-published</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
@@ -563,7 +644,7 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;clusters&quot;:{&quot;account_ids&quot;:[&quot;464989065112&quot;],&quot;cluster&quot;:[&quot;johnny-walker&quot;]}}</stringProp>
+                <stringProp name="Argument.value">{"clusters":{"account_ids":["464989065112"],"cluster":["johnny-walker"]}}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -576,7 +657,7 @@
         </HTTPSamplerProxy>
         <hashTree/>
 
-        <!-- Response Assertion: check for 2xx -->
+        <!-- Response Assertion: check for 2xx on all authenticated API calls -->
         <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert 2xx Response" enabled="true">
           <collectionProp name="Asserion.test_strings">
             <stringProp name="49586">200</stringProp>
@@ -589,39 +670,21 @@
         </ResponseAssertion>
         <hashTree/>
 
-        <!-- View Results Tree (for debugging - disable in production runs) -->
+        <!-- View Results Tree (disabled in CI - enable locally for debugging) -->
         <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="false">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>
             <value class="SampleSaveConfiguration">
-              <time>true</time>
-              <latency>true</latency>
-              <timestamp>true</timestamp>
-              <success>true</success>
-              <label>true</label>
-              <code>true</code>
-              <message>true</message>
-              <threadName>true</threadName>
-              <dataType>true</dataType>
-              <encoding>false</encoding>
-              <assertions>true</assertions>
-              <subresults>true</subresults>
-              <responseData>false</responseData>
-              <samplerData>false</samplerData>
-              <xml>false</xml>
-              <fieldNames>true</fieldNames>
-              <responseHeaders>false</responseHeaders>
-              <requestHeaders>false</requestHeaders>
-              <responseDataOnError>true</responseDataOnError>
+              <time>true</time><latency>true</latency><timestamp>true</timestamp><success>true</success>
+              <label>true</label><code>true</code><message>true</message><threadName>true</threadName>
+              <dataType>true</dataType><encoding>false</encoding><assertions>true</assertions>
+              <subresults>true</subresults><responseData>false</responseData><samplerData>false</samplerData>
+              <xml>false</xml><fieldNames>true</fieldNames><responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders><responseDataOnError>true</responseDataOnError>
               <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-              <assertionsResultsToSave>0</assertionsResultsToSave>
-              <bytes>true</bytes>
-              <sentBytes>true</sentBytes>
-              <url>true</url>
-              <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
+              <assertionsResultsToSave>0</assertionsResultsToSave><bytes>true</bytes><sentBytes>true</sentBytes>
+              <url>true</url><threadCounts>true</threadCounts><idleTime>true</idleTime><connectTime>true</connectTime>
             </value>
           </objProp>
           <stringProp name="filename"></stringProp>
@@ -634,33 +697,15 @@
           <objProp>
             <name>saveConfig</name>
             <value class="SampleSaveConfiguration">
-              <time>true</time>
-              <latency>true</latency>
-              <timestamp>true</timestamp>
-              <success>true</success>
-              <label>true</label>
-              <code>true</code>
-              <message>true</message>
-              <threadName>true</threadName>
-              <dataType>true</dataType>
-              <encoding>false</encoding>
-              <assertions>true</assertions>
-              <subresults>true</subresults>
-              <responseData>false</responseData>
-              <samplerData>false</samplerData>
-              <xml>false</xml>
-              <fieldNames>true</fieldNames>
-              <responseHeaders>false</responseHeaders>
-              <requestHeaders>false</requestHeaders>
-              <responseDataOnError>false</responseDataOnError>
+              <time>true</time><latency>true</latency><timestamp>true</timestamp><success>true</success>
+              <label>true</label><code>true</code><message>true</message><threadName>true</threadName>
+              <dataType>true</dataType><encoding>false</encoding><assertions>true</assertions>
+              <subresults>true</subresults><responseData>false</responseData><samplerData>false</samplerData>
+              <xml>false</xml><fieldNames>true</fieldNames><responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders><responseDataOnError>false</responseDataOnError>
               <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-              <assertionsResultsToSave>0</assertionsResultsToSave>
-              <bytes>true</bytes>
-              <sentBytes>true</sentBytes>
-              <url>true</url>
-              <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
+              <assertionsResultsToSave>0</assertionsResultsToSave><bytes>true</bytes><sentBytes>true</sentBytes>
+              <url>true</url><threadCounts>true</threadCounts><idleTime>true</idleTime><connectTime>true</connectTime>
             </value>
           </objProp>
           <stringProp name="filename"></stringProp>
