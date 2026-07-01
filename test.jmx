@@ -77,6 +77,10 @@
               <stringProp name="Header.name">content-type</stringProp>
               <stringProp name="Header.value">application/json</stringProp>
             </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">X-CSRFToken</stringProp>
+              <stringProp name="Header.value">${CSRF_TOKEN}</stringProp>
+            </elementProp>
           </collectionProp>
         </HeaderManager>
         <hashTree/>
