@@ -5,20 +5,9 @@
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
-        <collectionProp name="Arguments.arguments">
-          <elementProp name="EMAIL" elementType="Argument">
-            <stringProp name="Argument.name">EMAIL</stringProp>
-            <stringProp name="Argument.value">${__P(EMAIL,)}</stringProp>
-            <stringProp name="Argument.metadata">=</stringProp>
-          </elementProp>
-          <elementProp name="PASSWORD" elementType="Argument">
-            <stringProp name="Argument.name">PASSWORD</stringProp>
-            <stringProp name="Argument.value">${__P(PASSWORD,)}</stringProp>
-            <stringProp name="Argument.metadata">=</stringProp>
-          </elementProp>
-        </collectionProp>
+        <collectionProp name="Arguments.arguments"/>
       </elementProp>
-      <stringProp name="TestPlan.comments">CyberShield Dashboard API performance tests with dynamic login</stringProp>
+      <stringProp name="TestPlan.comments">CyberShield Dashboard API performance tests</stringProp>
     </TestPlan>
     <hashTree>
 
@@ -57,87 +46,12 @@
         </ConfigTestElement>
         <hashTree/>
 
-        <!-- ============================================================ -->
-        <!-- STEP 1: LOGIN — get fresh auth token each test run           -->
-        <!-- ============================================================ -->
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST /api/login" enabled="true">
-          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-              <elementProp name="" elementType="HTTPArgument">
-                <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{"user":{"email":"${EMAIL}","password":"${PASSWORD}"}}</stringProp>
-                <stringProp name="Argument.metadata">=</stringProp>
-              </elementProp>
-            </collectionProp>
-          </elementProp>
-          <stringProp name="HTTPSampler.path">/api/login</stringProp>
-          <stringProp name="HTTPSampler.method">POST</stringProp>
-          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-        </HTTPSamplerProxy>
-        <hashTree>
-          <!-- Login-specific headers (no Cookie needed here) -->
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Login Headers" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Accept</stringProp>
-                <stringProp name="Header.value">application/json, text/plain, */*</stringProp>
-              </elementProp>
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Origin</stringProp>
-                <stringProp name="Header.value">https://hf.cyberqshield.syipx.com</stringProp>
-              </elementProp>
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Referer</stringProp>
-                <stringProp name="Header.value">https://hf.cyberqshield.syipx.com/login</stringProp>
-              </elementProp>
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">User-Agent</stringProp>
-                <stringProp name="Header.value">Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-
-          <!-- Assert login returned 200 -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert Login 200" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">200</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">Login failed — check EMAIL/PASSWORD credentials in Jenkins</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">33</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <!-- Extract token from JSON response body: {"token": "..."} -->
-          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract auth_token" enabled="true">
-            <stringProp name="JSONPathExtractor.referenceNames">auth_token</stringProp>
-            <stringProp name="JSONPathExtractor.jsonPathExprs">$.token</stringProp>
-            <stringProp name="JSONPathExtractor.defaultValues">TOKEN_NOT_FOUND</stringProp>
-            <stringProp name="JSONPathExtractor.match_no">0</stringProp>
-            <boolProp name="JSONPathExtractor.compute_concat">false</boolProp>
-          </JSONPostProcessor>
-          <hashTree/>
-        </hashTree>
-
-        <!-- ============================================================ -->
-        <!-- STEP 2: Authenticated API calls using extracted token        -->
-        <!-- ============================================================ -->
-
-        <!-- Shared headers for all authenticated requests -->
+        <!-- Shared headers with session cookie -->
         <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Browser Headers" enabled="true">
           <collectionProp name="HeaderManager.headers">
             <elementProp name="" elementType="Header">
               <stringProp name="Header.name">Cookie</stringProp>
-              <stringProp name="Header.value">token=${auth_token}</stringProp>
+              <stringProp name="Header.value">${CYBER_COOKIE}</stringProp>
             </elementProp>
             <elementProp name="" elementType="Header">
               <stringProp name="Header.name">Origin</stringProp>
@@ -657,7 +571,7 @@
         </HTTPSamplerProxy>
         <hashTree/>
 
-        <!-- Response Assertion: check for 2xx on all authenticated API calls -->
+        <!-- Response Assertion: check for 2xx -->
         <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert 2xx Response" enabled="true">
           <collectionProp name="Asserion.test_strings">
             <stringProp name="49586">200</stringProp>
@@ -670,7 +584,7 @@
         </ResponseAssertion>
         <hashTree/>
 
-        <!-- View Results Tree (disabled in CI - enable locally for debugging) -->
+        <!-- View Results Tree (disabled in CI) -->
         <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="false">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
