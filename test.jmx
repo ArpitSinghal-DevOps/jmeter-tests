@@ -118,13 +118,13 @@
           <hashTree/>
 
           <!-- Extract token from JSON response body: {"token": "..."} -->
-          <JSONPathExtractor guiclass="JSONPathExtractorGui" testclass="JSONPathExtractor" testname="Extract auth_token" enabled="true">
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract auth_token" enabled="true">
             <stringProp name="JSONPathExtractor.referenceNames">auth_token</stringProp>
             <stringProp name="JSONPathExtractor.jsonPathExprs">$.token</stringProp>
             <stringProp name="JSONPathExtractor.defaultValues">TOKEN_NOT_FOUND</stringProp>
             <stringProp name="JSONPathExtractor.match_no">0</stringProp>
             <boolProp name="JSONPathExtractor.compute_concat">false</boolProp>
-          </JSONPathExtractor>
+          </JSONPostProcessor>
           <hashTree/>
         </hashTree>
 
