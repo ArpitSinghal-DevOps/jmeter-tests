@@ -51,7 +51,7 @@
           <collectionProp name="HeaderManager.headers">
             <elementProp name="" elementType="Header">
               <stringProp name="Header.name">Cookie</stringProp>
-              <stringProp name="Header.value">${CYBER_COOKIE}</stringProp>
+              <stringProp name="Header.value">${__P(CYBER_COOKIE)}</stringProp>
             </elementProp>
             <elementProp name="" elementType="Header">
               <stringProp name="Header.name">Origin</stringProp>
@@ -79,7 +79,7 @@
             </elementProp>
             <elementProp name="" elementType="Header">
               <stringProp name="Header.name">X-CSRFToken</stringProp>
-              <stringProp name="Header.value">${CSRF_TOKEN}</stringProp>
+              <stringProp name="Header.value">${__P(CSRF_TOKEN)}</stringProp>
             </elementProp>
           </collectionProp>
         </HeaderManager>
